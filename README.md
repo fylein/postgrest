@@ -27,7 +27,11 @@ Assuming, you have the `stack` installed:
 
 You can create the above conf file by copying the content from the first tutorial above.
 
-## Local dev usage
+## Docker dev
+- `docker build -t fylehq/postgrest:v6.0.2.1 .`
+- `docker run --name postgrest -p 8008:3000 -e "PGRST_DB_URI=<db-uri>" -e "PGRST_DB_ANON_ROLE=<role>" -e "PGRST_DB_SCHEMA=<schema>" -e "PGRST_DB_EXTRA_SEARCH_PATH=<supporting-schema>" -d --rm fylehq/postgrest:v6.0.2.1`
+
+## Usage
 Assuming you have the below table from the above tutorial:
 ```shell script
 % docker exec -it tutorial psql -U postgres                       
@@ -71,5 +75,11 @@ Content-Type: application/sql; charset=utf-8
 SELECT "api"."todos".* FROM "api"."todos"    %                                                                                                                                                                                                
 ``` 
 
-## Related
+## Helpful resources
+- https://www.fpcomplete.com/blog/2017/12/building-haskell-apps-with-docker/
+- `./test/Dockerfile.test`
+- https://docs.haskellstack.org/en/stable/install_and_upgrade/#manual-download_2
+- https://raw.githubusercontent.com/commercialhaskell/stack/stable/etc/scripts/get-stack.sh
+- Entering into a non-running image: `docker run -it --entrypoint /bin/bash <image-id>`
+- Pushing to docker hub: `docker push fylehq/postgrest:v6.0.2.1`
 - https://github.com/PostgREST/postgrest/issues/1573
