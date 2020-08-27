@@ -114,22 +114,25 @@ app dbStructure proc cols conf apiRequest =
           case partsField of
             Left errorResponse -> return errorResponse
             Right ((q, cq), bField) -> do
-              let stm = createReadStatement q cq (contentType == CTSingularJSON) shouldCount
-                                            (contentType == CTTextCSV) bField
-              row <- H.statement () stm
-              let (tableTotal, queryTotal, _ , body) = row
-                  (status, contentRange) = rangeHeader queryTotal tableTotal
-                  canonical = iCanonicalQS apiRequest
-              return $
-                if contentType == CTSingularJSON && queryTotal /= 1
-                  then errorResponseFor . singularityError $ queryTotal
-                  else responseLBS status
-                    [toHeader contentType, contentRange,
-                      ("Content-Location",
-                        "/" <> toS (qiName qi) <>
-                          if BS.null canonical then "" else "?" <> toS canonical
-                      )
-                    ] (toS body)
+              case contentType of
+                CTApplicationSQL -> return $ responseLBS status200 [toHeader contentType] (toS q) -- if the value of accept header is `application/sql`, just return the query `q` - no need to do even a single extra step
+                _ -> do -- for all other values of accept header, let the library work as default
+                  let stm = createReadStatement q cq (contentType == CTSingularJSON) shouldCount
+                                                (contentType == CTTextCSV) bField
+                  row <- H.statement () stm
+                  let (tableTotal, queryTotal, _ , body) = row
+                      (status, contentRange) = rangeHeader queryTotal tableTotal
+                      canonical = iCanonicalQS apiRequest
+                  return $
+                    if contentType == CTSingularJSON && queryTotal /= 1
+                      then errorResponseFor . singularityError $ queryTotal
+                      else responseLBS status
+                        [toHeader contentType, contentRange,
+                          ("Content-Location",
+                            "/" <> toS (qiName qi) <>
+                              if BS.null canonical then "" else "?" <> toS canonical
+                          )
+                        ] (toS body)
 
         (ActionCreate, TargetIdent (QualifiedIdentifier tSchema tName), Just pJson) ->
           case mutateSqlParts tSchema tName of
@@ -337,7 +340,7 @@ responseContentTypeOrError :: [ContentType] -> [ContentType] -> Action -> Target
 responseContentTypeOrError accepts rawContentTypes action target = serves contentTypesForRequest accepts
   where
     contentTypesForRequest = case action of
-      ActionRead         ->  [CTApplicationJSON, CTSingularJSON, CTTextCSV]
+      ActionRead         ->  [CTApplicationJSON, CTSingularJSON, CTTextCSV, CTApplicationSQL]
                              ++ rawContentTypes
       ActionCreate       ->  [CTApplicationJSON, CTSingularJSON, CTTextCSV]
       ActionUpdate       ->  [CTApplicationJSON, CTSingularJSON, CTTextCSV]
