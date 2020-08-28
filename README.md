@@ -7,6 +7,7 @@ We are customising this version as per our needs. To be specific:
 - We are adding support for returning the sql query generated for a given request without actually firing that query.
 - If the `Accept` header in the request has the value of `application/sql`, we return the sql query generated for that request.
 - We are adding this support only for `ActionRead` kind of `Action`. In non-postgrest lingo, just for `GET` kind of requests. Other actions are untouched, and the behaviour for them would be same as that of standard library.
+- Docker images for the customised variants can be found at: https://hub.docker.com/r/fylehq/postgrest
 
 ## Local dev
 Note: As of developing this, the latest Stack version is:
@@ -30,6 +31,17 @@ You can create the above conf file by copying the content from the first tutoria
 ## Docker dev
 - `docker build -t fylehq/postgrest:v6.0.2.1 .`
 - `docker run --name postgrest -p 8008:3000 -e "PGRST_DB_URI=<db-uri>" -e "PGRST_DB_ANON_ROLE=<role>" -e "PGRST_DB_SCHEMA=<schema>" -e "PGRST_DB_EXTRA_SEARCH_PATH=<supporting-schema>" -d --rm fylehq/postgrest:v6.0.2.1`
+
+## Naming convention
+- We checkout branch from the tag of interest.
+- We name this branch same as the tag(without `v`).
+- For example, if we want to customise `v6.0.2`: `git checkout tags/v6.0.2 -b 6.0.2`
+- Commit the changes in this branch and push to remote.
+- We never change the history for `master` branch. It's left untouched.
+- It means, we don't merge the private branch to `master`, instead we build our docker image out of these private branches.
+- Tagging convention for docker image is: `fylehq/postgrest:{tag}.{revision}`
+- Example: if we build the first image out of branch `6.0.2`, we would tag the image as: `fylehq/postgrest:v6.0.2.1`
+- With subsequent build, the revision number increments by 1.
 
 ## Usage
 Assuming you have the below table from the above tutorial:
@@ -81,5 +93,6 @@ SELECT "api"."todos".* FROM "api"."todos"    %
 - https://docs.haskellstack.org/en/stable/install_and_upgrade/#manual-download_2
 - https://raw.githubusercontent.com/commercialhaskell/stack/stable/etc/scripts/get-stack.sh
 - Entering into a non-running image: `docker run -it --entrypoint /bin/bash <image-id>`
-- Pushing to docker hub: `docker push fylehq/postgrest:v6.0.2.1`
+- Login to docker account: `docker login`
+- Pushing to docker hub: `docker push fylehq/postgrest:v6.0.2.1` 
 - https://github.com/PostgREST/postgrest/issues/1573
