@@ -21,7 +21,7 @@ RUN apt-get -qq update && \
 
 RUN mkdir /opt/build
 
-COPY docker /opt/build
+COPY . /opt/build
 
 # Build postgrest app
 RUN cd /opt/build && \
