@@ -1,157 +1,98 @@
-![Logo](static/bigger-logo.png "Logo")
+## First things first
+- This branch is based off: https://github.com/fylein/postgrest/releases/tag/v7.0.1
+- The whole repo is forked from: https://github.com/PostgREST/postgrest
+- Find the master's README at: https://github.com/fylein/postgrest
 
-[![Donate](https://img.shields.io/badge/Donate-Patreon-orange.svg?colorB=F96854)](https://www.patreon.com/postgrest)
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.me/postgrest)
-<a href="https://heroku.com/deploy?template=https://github.com/PostgREST/postgrest">
-  <img src="https://img.shields.io/badge/%E2%86%91_Deploy_to-Heroku-7056bf.svg" alt="Deploy">
-</a>
-[![Join the chat at https://gitter.im/begriffs/postgrest](https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-brightgreen.svg)](https://gitter.im/begriffs/postgrest)
-[![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](http://postgrest.org)
-[![Docker Stars](https://img.shields.io/docker/pulls/postgrest/postgrest.svg)](https://hub.docker.com/r/postgrest/postgrest/)
-[![Build Status](https://circleci.com/gh/PostgREST/postgrest/tree/master.svg?style=shield)](https://circleci.com/gh/PostgREST/postgrest/tree/master)
-[![Hackage docs](https://img.shields.io/hackage/v/postgrest.svg?label=hackage)](http://hackage.haskell.org/package/postgrest)
+We are customising this version as per our needs. To be specific:
+- We are adding support for returning the sql query generated for a given request without actually firing that query.
+- If the `Accept` header in the request has the value of `application/sql`, we return the sql query generated for that request.
+- We are adding this support only for `ActionRead` kind of `Action`. In non-postgrest lingo, just for `GET` kind of requests. Other actions are untouched, and the behaviour for them would be same as that of standard library.
+- Docker images for the customised variants can be found at: https://hub.docker.com/r/fylehq/postgrest
 
-PostgREST serves a fully RESTful API from any existing PostgreSQL
-database. It provides a cleaner, more standards-compliant, faster
-API than you are likely to write from scratch.
+## Local dev
+Note: As of developing this, the latest Stack version is:
+```shell script
+% stack --version
+Version 2.3.3, Git revision cb44d51bed48b723a5deb08c3348c0b3ccfc437e x86_64 hpack-0.33.0
+```
+All the testing is done with this version of Stack, so would recommend to stick to the same to avoid any surprises. But, if you are more of a explorer, go ahead, experiment!
 
-## Sponsors
+The following two links are your friends:
+- http://postgrest.org/en/v7.0.0/tutorials/tut0.html
+- http://postgrest.org/en/v7.0.0/development.html#build-source
 
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://www.cybertec-postgresql.com/en/" target="_blank">
-          <img width="222px" src="static/cybertec.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://www.2ndquadrant.com/en/?utm_campaign=External%20Websites&utm_source=PostgREST&utm_medium=Logo" target="_blank">
-          <img width="222px" src="static/2ndquadrant.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://tryretool.com/?utm_source=sponsor&utm_campaign=postgrest" target="_blank">
-          <img width="222px" src="static/retool.png">
-        </a>
-      </td>
-    </tr>
-  </tbody>
-</table>
+Assuming, you have the `stack` installed:
+- Build the application: `stack build --install-ghc --copy-bins --local-bin-path /usr/local/bin`
+- Note: `--install-ghc` flag is only needed for the first build. Can be dropped in subsequent builds.
+- Run the application: `postgrest tutorial.conf`
 
-Big thanks to our sponsors! You can join them by supporting PostgREST on [Patreon](https://www.patreon.com/postgrest).
+You can create the above conf file by copying the content from the first tutorial above.
+
+## Docker dev
+- `docker build -t fylehq/postgrest:v7.0.1.1 .`
+- `docker run --name postgrest -p 8008:3000 -e "PGRST_DB_URI=<db-uri>" -e "PGRST_DB_ANON_ROLE=<role>" -e "PGRST_DB_SCHEMA=<schema>" -e "PGRST_DB_EXTRA_SEARCH_PATH=<supporting-schema>" -d --rm fylehq/postgrest:v7.0.1.1`
+
+## Naming convention
+- We checkout branch from the tag of interest.
+- We name this branch same as the tag(without `v`).
+- For example, if we want to customise `v7.0.1`: `git checkout tags/v7.0.1 -b 7.0.1`
+- Commit the changes in this branch and push to remote.
+- We never change the history for `master` branch. It's left untouched.
+- It means, we don't merge the private branch to `master`, instead we build our docker image out of these private branches.
+- Tagging convention for docker image is: `fylehq/postgrest:{tag}.{revision}`
+- Example: if we build the first image out of branch `7.0.1`, we would tag the image as: `fylehq/postgrest:v7.0.1.1`
+- With subsequent build, the revision number increments by 1.
 
 ## Usage
+Assuming you have the below table from the above tutorial:
+```shell script
+% docker exec -it tutorial psql -U postgres                       
+psql (12.4 (Debian 12.4-1.pgdg100+1))
+Type "help" for help.
 
-1. Download the binary ([latest release](https://github.com/PostgREST/postgrest/releases/latest))
-   for your platform.
-2. Invoke for help:
+postgres=# select * from api.todos;
+id | done |       task        | due 
+----+------+-------------------+-----
+1 | f    | finish tutorial 0 | 
+2 | f    | pat self on back  | 
+(2 rows)
 
-    ```bash
-    postgrest --help
-    ```
-## [Documentation](http://postgrest.org)
+postgres=# \q
+```
 
-Latest documentation is at [postgrest.org](http://postgrest.org). You can contribute to the docs in [PostgREST/postgrest-docs](https://github.com/PostgREST/postgrest-docs).
+Everything else will work as standard library:
+```shell script
+% curl http://localhost:3000/todos -i                                    
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Date: Thu, 20 Aug 2020 04:37:32 GMT
+Server: postgrest/7.0.1 (677580c)
+Content-Type: application/json; charset=utf-8
+Content-Range: 0-1/*
+Content-Location: /todos
 
-## Performance
+[{"id":1,"done":false,"task":"finish tutorial 0","due":null}, 
+{"id":2,"done":false,"task":"pat self on back","due":null}]%                                                                                                                                                                                 
+```
 
-TLDR; subsecond response times for up to 2000 requests/sec on Heroku
-free tier. If you're used to servers written in interpreted languages, 
-prepare to be pleasantly surprised by PostgREST performance.
+Except when the `Accept` header has a value of `application/sql`:
+```shell script
+% curl http://localhost:3000/todos -i -H "Accept: application/sql"         
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Date: Thu, 20 Aug 2020 04:37:40 GMT
+Server: postgrest/7.0.1 (677580c)
+Content-Type: application/sql; charset=utf-8
 
-Three factors contribute to the speed. First the server is written
-in [Haskell](https://www.haskell.org/) using the
-[Warp](http://www.yesodweb.com/blog/2011/03/preliminary-warp-cross-language-benchmarks)
-HTTP server (aka a compiled language with lightweight threads).
-Next it delegates as much calculation as possible to the database
-including
+SELECT "api"."todos".* FROM "api"."todos"    %                                                                                                                                                                                                
+``` 
 
-* Serializing JSON responses directly in SQL
-* Data validation
-* Authorization
-* Combined row counting and retrieval
-* Data post in single command (`returning *`)
-
-Finally it uses the database efficiently with the
-[Hasql](https://nikita-volkov.github.io/hasql-benchmarks/) library
-by
-
-* Keeping a pool of db connections
-* Using the PostgreSQL binary protocol
-* Being stateless to allow horizontal scaling
-
-## Security
-
-PostgREST [handles
-authentication](http://postgrest.org/en/stable/auth.html) (via JSON Web
-Tokens) and delegates authorization to the role information defined in
-the database. This ensures there is a single declarative source of truth
-for security.  When dealing with the database the server assumes the
-identity of the currently authenticated user, and for the duration of
-the connection cannot do anything the user themselves couldn't. Other
-forms of authentication can be built on top of the JWT primitive. See
-the docs for more information.
-
-PostgreSQL 9.5 supports true [row-level
-security](http://www.postgresql.org/docs/9.5/static/ddl-rowsecurity.html).
-In previous versions it can be simulated with triggers and
-security-barrier views. Because the possible queries to the database
-are limited to certain templates using
-[leakproof](http://blog.2ndquadrant.com/how-do-postgresql-security_barrier-views-work/)
-functions, the trigger workaround does not compromise row-level
-security.
-
-## Versioning
-
-A robust long-lived API needs the freedom to exist in multiple
-versions. PostgREST does versioning through database schemas. This
-allows you to expose tables and views without making the app brittle.
-Underlying tables can be superseded and hidden behind public facing
-views.
-
-## Self-documentation
-
-PostgREST uses the [OpenAPI](https://openapis.org/) standard to
-generate up-to-date documentation for APIs. You can use a tool like
-[Swagger-UI](https://github.com/swagger-api/swagger-ui) to render
-interactive documentation for demo requests against the live API server.
-
-This project uses HTTP to communicate other metadata as well.  For
-instance the number of rows returned by an endpoint is reported by -
-and limited with - range headers. More about
-[that](http://begriffs.com/posts/2014-03-06-beyond-http-header-links.html).
-
-## Data Integrity
-
-Rather than relying on an Object Relational Mapper and custom
-imperative coding, this system requires you put declarative constraints
-directly into your database. Hence no application can corrupt your
-data (including your API server).
-
-The PostgREST exposes HTTP interface with safeguards to prevent
-surprises, such as enforcing idempotent PUT requests.
-
-See examples of [PostgreSQL
-constraints](http://www.tutorialspoint.com/postgresql/postgresql_constraints.htm)
-and the [API guide](http://postgrest.org/en/stable/api.html).
-
-## Supporting development
-
-You can help PostgREST ongoing maintenance and development by:
-
-- Making a regular donation through Patreon https://www.patreon.com/postgrest
-
-- Alternatively, you can make a one-time donation via Paypal https://www.paypal.me/postgrest
-
-Every donation will be spent on making PostgREST better for the whole community.
-
-## Thanks
-
-The PostgREST organization is grateful to:
-
-- The project [sponsors and backers](https://github.com/PostgREST/postgrest/blob/master/BACKERS.md) who support PostgREST's development.
-- The project [contributors](https://github.com/PostgREST/postgrest/graphs/contributors) who have improved PostgREST immensely with their code
-  and good judgement. See more details in the [changelog](https://github.com/PostgREST/postgrest/blob/master/CHANGELOG.md).
-
-The cool logo came from [Mikey Casalaina](https://github.com/casalaina).
+## Helpful resources
+- https://www.fpcomplete.com/blog/2017/12/building-haskell-apps-with-docker/
+- `./test/Dockerfile.test`
+- https://docs.haskellstack.org/en/stable/install_and_upgrade/#manual-download_2
+- https://raw.githubusercontent.com/commercialhaskell/stack/stable/etc/scripts/get-stack.sh
+- Entering into a non-running image: `docker run -it --entrypoint /bin/bash <image-id>`
+- Login to docker account: `docker login`
+- Pushing to docker hub: `docker push fylehq/postgrest:v7.0.1.1` 
+- https://github.com/PostgREST/postgrest/issues/1573

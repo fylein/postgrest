@@ -31,7 +31,8 @@ import Protolude.Conv       (toS)
 data ContentType = CTApplicationJSON | CTSingularJSON
                  | CTTextCSV | CTTextPlain
                  | CTOpenAPI | CTOctetStream
-                 | CTAny | CTOther ByteString deriving (Show, Eq)
+                 | CTApplicationSQL | CTAny
+                 | CTOther ByteString deriving (Show, Eq)
 
 -- | Convert from ContentType to a full HTTP Header
 toHeader :: ContentType -> Header
@@ -45,6 +46,7 @@ toMime CTTextPlain       = "text/plain"
 toMime CTOpenAPI         = "application/openapi+json"
 toMime CTSingularJSON    = "application/vnd.pgrst.object+json"
 toMime CTOctetStream     = "application/octet-stream"
+toMime CTApplicationSQL  = "application/sql"
 toMime CTAny             = "*/*"
 toMime (CTOther ct)      = ct
 
@@ -58,6 +60,7 @@ decodeContentType ct = case BS.takeWhile (/= BS.c2w ';') ct of
   "application/vnd.pgrst.object+json" -> CTSingularJSON
   "application/vnd.pgrst.object"      -> CTSingularJSON
   "application/octet-stream"          -> CTOctetStream
+  "application/sql"                   -> CTApplicationSQL
   "*/*"                               -> CTAny
   ct'                                 -> CTOther ct'
 

@@ -129,33 +129,36 @@ app dbStructure proc cols conf apiRequest =
           case readSqlParts tSchema tName of
             Left errorResponse -> return errorResponse
             Right (q, cq, bField, _) -> do
-              let cQuery = if estimatedCount
-                             then limitedQuery cq ((+ 1) <$> maxRows) -- LIMIT maxRows + 1 so we can determine below that maxRows was surpassed
-                             else cq
-                  stm = createReadStatement q cQuery (contentType == CTSingularJSON) shouldCount
-                        (contentType == CTTextCSV) bField pgVer
-                  explStm = createExplainStatement cq
-              row <- H.statement () stm
-              let (tableTotal, queryTotal, _ , body, gucHeaders) = row
-              case gucHeaders of
-                Left _ -> return . errorResponseFor $ GucHeadersError
-                Right ghdrs -> do
-                  total <- if | plannedCount   -> H.statement () explStm
-                              | estimatedCount -> if tableTotal > (fromIntegral <$> maxRows)
-                                                    then do estTotal <- H.statement () explStm
-                                                            pure $ if estTotal > tableTotal then estTotal else tableTotal
-                                                    else pure tableTotal
-                              | otherwise      -> pure tableTotal
-                  let (status, contentRange) = rangeStatusHeader topLevelRange queryTotal total
-                      headers = addHeadersIfNotIncluded (catMaybes [
-                                  Just $ toHeader contentType, Just contentRange,
-                                  Just $ contentLocationH tName (iCanonicalQS apiRequest), profileH])
-                                (unwrapGucHeader <$> ghdrs)
-                      rBody = if headersOnly then mempty else toS body
-                  return $
-                    if contentType == CTSingularJSON && queryTotal /= 1
-                      then errorResponseFor . singularityError $ queryTotal
-                      else responseLBS status headers rBody
+              case contentType of
+                CTApplicationSQL -> return $ responseLBS status200 (catMaybes [Just $ toHeader contentType]) (toS q)  -- if the value of accept header is `application/sql`, just return the query `q` - no need to do even a single extra step
+                _ -> do -- for all other values of accept header, let the library work as default
+                  let cQuery = if estimatedCount
+                                 then limitedQuery cq ((+ 1) <$> maxRows) -- LIMIT maxRows + 1 so we can determine below that maxRows was surpassed
+                                 else cq
+                      stm = createReadStatement q cQuery (contentType == CTSingularJSON) shouldCount
+                            (contentType == CTTextCSV) bField pgVer
+                      explStm = createExplainStatement cq
+                  row <- H.statement () stm
+                  let (tableTotal, queryTotal, _ , body, gucHeaders) = row
+                  case gucHeaders of
+                    Left _ -> return . errorResponseFor $ GucHeadersError
+                    Right ghdrs -> do
+                      total <- if | plannedCount   -> H.statement () explStm
+                                  | estimatedCount -> if tableTotal > (fromIntegral <$> maxRows)
+                                                        then do estTotal <- H.statement () explStm
+                                                                pure $ if estTotal > tableTotal then estTotal else tableTotal
+                                                        else pure tableTotal
+                                  | otherwise      -> pure tableTotal
+                      let (status, contentRange) = rangeStatusHeader topLevelRange queryTotal total
+                          headers = addHeadersIfNotIncluded (catMaybes [
+                                      Just $ toHeader contentType, Just contentRange,
+                                      Just $ contentLocationH tName (iCanonicalQS apiRequest), profileH])
+                                    (unwrapGucHeader <$> ghdrs)
+                          rBody = if headersOnly then mempty else toS body
+                      return $
+                        if contentType == CTSingularJSON && queryTotal /= 1
+                          then errorResponseFor . singularityError $ queryTotal
+                          else responseLBS status headers rBody
 
         (ActionCreate, TargetIdent (QualifiedIdentifier tSchema tName), Just pJson) ->
           case mutateSqlParts tSchema tName of
@@ -366,7 +369,7 @@ responseContentTypeOrError :: [ContentType] -> [ContentType] -> Action -> Target
 responseContentTypeOrError accepts rawContentTypes action target = serves contentTypesForRequest accepts
   where
     contentTypesForRequest = case action of
-      ActionRead _       ->  [CTApplicationJSON, CTSingularJSON, CTTextCSV]
+      ActionRead _       ->  [CTApplicationJSON, CTSingularJSON, CTTextCSV, CTApplicationSQL]
                              ++ rawContentTypes
       ActionCreate       ->  [CTApplicationJSON, CTSingularJSON, CTTextCSV]
       ActionUpdate       ->  [CTApplicationJSON, CTSingularJSON, CTTextCSV]
