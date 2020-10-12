@@ -28,7 +28,7 @@ RUN cd /opt/build && \
     stack build --system-ghc --copy-bins --local-bin-path /usr/local/bin && \
     cd /
 
-FROM debian:stretch-slim
+FROM debian:buster-slim
 
 # Install libpq5
 RUN apt-get -qq update && \
